@@ -146,17 +146,23 @@ def spin_button(username):
 #Save prizes won in a log file
 def write_to_file(username):
 	#print prize won
-	f = open(PATH_TO_LOGFILE,'a')
-	print("prize file opened")
-	try:
+	if EC2_MODE:
+		f = open(PATH_TO_LOGFILE,'a')
+		print("prize file opened")
+		try:
+			prize = driver.find_element_by_xpath('//*[@id="game-details-page"]/div[4]/div/div/p')
+			print("prize found")
+			print(f"{username} {prize.text}")
+			f.write(f"{username} {prize.text} \n")
+		except:
+			print(f"{username} prize broken")
+			f.write(f"{username} prize broken\n")			
+		f.close()
+	else:
 		prize = driver.find_element_by_xpath('//*[@id="game-details-page"]/div[4]/div/div/p')
 		print("prize found")
 		print(f"{username} {prize.text}")
 		f.write(f"{username} {prize.text} \n")
-	except:
-		print(f"{username} prize broken")
-		f.write(f"{username} prize broken\n")			
-	f.close()
 
 def sign_out():
 	print("signing out")
@@ -204,7 +210,7 @@ def spin(index):
 	refresh()
 	menu_click()
 	spin_button(usernames[index])
-	#write_to_file(usernames[index])
+	write_to_file(usernames[index])
 	try:
 		sign_out()
 	except:
