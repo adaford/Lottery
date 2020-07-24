@@ -10,14 +10,16 @@ import sys
 import os
 from datetime import date
 
+EC2_MODE = True if len(sys.argv) == 1 else False
+PATH_TO_USERNAMES = "/home/ec2-user/lotto/lotto_accounts.txt" if EC2_MODE else "D:\Adam\Selenium\lottery\lotto_accounts.txt"
+PATH_TO_LOGFILE = f"/home/ec2-user/lotto/logs/{str(date.today())[5:]}.txt"
+
 chrome_options = Options()
 chrome_options.add_argument('log-level=3')
 chrome_options.add_argument("--mute-audio")
 chrome_options.add_argument('--incognito')
-chrome_options.add_argument('headless')
-
-PATH_TO_USERNAMES = "/home/ec2-user/lotto/lotto_accounts.txt"
-PATH_TO_LOGFILE = f"/home/ec2-user/lotto/logs/{str(date.today())[5:]}.txt"
+if EC2_MODE:
+	chrome_options.add_argument('headless')
 
 def create_driver():
 	driver = webdriver.Chrome(options=chrome_options)
@@ -33,8 +35,18 @@ def open_browser():
 def sign_in(user,pw):
 	print(f"signing in {user}")
 	sign_in = driver.find_element_by_id("login_button")
+	count = 20
 	while not sign_in.is_enabled():
 		time.sleep(1)
+		count -= 1
+		if count==0:
+			print("saving screenshot sign_in_not_enabled")
+			driver.save_screenshot("sign_in_not_enabled.png")
+			if EC2_MODE:
+				exit(0)
+			else:
+				time.sleep(10000)
+
 	sign_in.click()
 	email_input = driver.find_element_by_id('user')
 	pw_input = driver.find_element_by_id('password')
@@ -45,13 +57,22 @@ def sign_in(user,pw):
 
 #Bypass first wave of popups
 def refresh():
-	while 1:
+	count = 20
+	while count:
 		try:
 			menu_arrow = driver.find_element_by_id('account-status-button')
 		except:
 			time.sleep(1)
 			print("menu arrow loading")
-			continue
+			count -= 1
+			if not count:
+				driver.save_screenshot("menu_arrow_broken.png")
+				print("menu arrow broken - exiting")
+				if EC2_MODE:
+					exit(0)
+				else:
+					time.sleep(10000)
+
 		if menu_arrow:
 			print("menu arrow found")
 			time.sleep(.5)
@@ -75,7 +96,9 @@ def refresh():
 
 #Bypass second wave of popups
 def menu_click():
-	while 1:
+	count = 20
+	while count:
+		count -= 1
 		try:
 			menu_arrow = driver.find_element_by_id('account-status-button')
 		except:
@@ -84,6 +107,11 @@ def menu_click():
 		if menu_arrow:
 			print("menu arrow found 2")
 			break
+	if not count:
+		if EC2_MODE:
+			exit(0)
+		else:
+			time.sleep(10000)
 
 	while not menu_arrow.is_enabled():
 		print("menu arrow not enabled yet")
@@ -102,6 +130,7 @@ def menu_click():
 def spin_button(username):
 	spin_to_win = driver.find_element_by_id('daily-spin-to-win-button')
 	while not spin_to_win:
+		print("not spin_to_win")
 		time.sleep(.5)
 	spin_to_win.click()
 	time.sleep(1)
@@ -146,30 +175,42 @@ def sign_out():
 	time.sleep(5)
 
 #Remove accounts from usernames/passwords list that have already been spun today
-def remove_accounts(sys_arg):
-	try:
-		with open(PATH_TO_LOGFILE) as f:
-			prizes = f.readlines()
-			for prize in prizes:
-				if len(prize) < 4:
-					continue
-				email_address = prize.split()[0]
-				user_index = usernames.index(email_address)
-				usernames.pop(user_index)
-				passwords.pop(user_index)
-	except:
-		print("remove_accounts passed")
-		pass
+def remove_accounts():
+	if EC2_MODE:
+		try:
+			with open(PATH_TO_LOGFILE) as f:
+				prizes = f.readlines()
+				for prize in prizes:
+					if len(prize) < 4:
+						continue
+					email_address = prize.split()[0]
+					user_index = usernames.index(email_address)
+					usernames.pop(user_index)
+					passwords.pop(user_index)
+		except:
+			print("remove_accounts passed")
+			pass
+	else:
+		for i in range(int(sys.argv[1])-1):
+			usernames.pop(i)
+			passwords.pop(i)
 
 #run all commands to spin wheel
 def spin(index):
-	sign_in(usernames[index], passwords[index])
+	try:
+		sign_in(usernames[index], passwords[index])
+	except:
+		driver.save_screenshot("sign_in.png")
 	refresh()
 	menu_click()
 	spin_button(usernames[index])
-	write_to_file(usernames[index])
-	sign_out()
+	#write_to_file(usernames[index])
+	try:
+		sign_out()
+	except:
+		driver.save_screenshot("sign_out.png")
 
+		
 if __name__ == '__main__':
 	usernames = []
 	passwords = []
@@ -178,11 +219,11 @@ if __name__ == '__main__':
 	f = open(PATH_TO_USERNAMES,"r")
 	accounts_passwords = f.readlines()
 	f.close()
-	for a in accounts_passwords:
-		a = a.split()
+	for i in range(len(accounts_passwords)):
+		a = accounts_passwords[i].split()
 		usernames.append(a[0])
 		passwords.append(a[1])
-	remove_accounts(sys.argv)
+	remove_accounts()
 
 	#run driver
 	driver = create_driver()
