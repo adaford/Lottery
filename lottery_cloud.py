@@ -162,7 +162,6 @@ def write_to_file(username):
 		prize = driver.find_element_by_xpath('//*[@id="game-details-page"]/div[4]/div/div/p')
 		print("prize found")
 		print(f"{username} {prize.text}")
-		f.write(f"{username} {prize.text} \n")
 
 def sign_out():
 	print("signing out")
@@ -198,8 +197,8 @@ def remove_accounts():
 			pass
 	else:
 		for i in range(int(sys.argv[1])-1):
-			usernames.pop(i)
-			passwords.pop(i)
+			usernames.pop(0)
+			passwords.pop(0)
 
 #run all commands to spin wheel
 def spin(index):
