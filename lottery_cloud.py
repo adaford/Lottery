@@ -12,7 +12,7 @@ from datetime import date
 
 EC2_MODE = True if len(sys.argv) == 1 else False
 PATH_TO_USERNAMES = "/home/ec2-user/lotto/lotto_accounts.txt" if EC2_MODE else "D:\Adam\Selenium\lottery\lotto_accounts.txt"
-PATH_TO_LOGFILE = f"/home/ec2-user/lotto/logs/{str(date.today())[5:]}.txt"
+PATH_TO_LOGFILE = f"/home/ec2-user/lotto/logs/{str(date.today())[5:]}.txt" if EC2_MODE else f"D:\Adam\Selenium\lottery\{str(date.today())[5:]}.txt"
 
 chrome_options = Options()
 chrome_options.add_argument('log-level=3')
@@ -55,12 +55,39 @@ def sign_in(user,pw):
 	driver.find_element_by_id('submit').submit()
 	print(f"signed in {user}")
 
+def check_for_survey():
+	try:
+		survey_button = driver.find_element_by_xpath('//*[@id="acsMainInvite"]/div/a[1]')
+		survey_button.click()
+		print("survey_button clicked")
+	except:
+		print("no survey_button found")
+
+def check_for_ads():
+	try:
+		ad = driver.find_element_by_id('modalTitle')
+		if ad:
+			driver.refresh()
+			print("ad found - page refreshed")
+			time.sleep(5)
+	except:
+		print("no ad found")
+
 #Bypass first wave of popups
-def refresh():
+def menu_click():
+	time.sleep(3)
+	check_for_survey()
+	check_for_ads()
+
 	count = 20
+	menu_arrow = None
 	while count:
 		try:
 			menu_arrow = driver.find_element_by_id('account-status-button')
+			print("menu arrow found")
+			time.sleep(.5)
+			break
+
 		except:
 			time.sleep(1)
 			print("menu arrow loading")
@@ -73,58 +100,18 @@ def refresh():
 				else:
 					time.sleep(10000)
 
-		if menu_arrow:
-			print("menu arrow found")
-			time.sleep(.5)
-			break
+	while not menu_arrow.is_enabled():
+		print("menu arrow not enabled yet")
+		time.sleep(.3)
+	menu_arrow.click()
+	time.sleep(1.5)
 
-	try:
-		ad = driver.find_element_by_id('modalTitle')
-		if ad:
-			driver.refresh()
-			print("ad found - page refreshed")
-			time.sleep(5)
-	except:
-		print("no ad found")
-
-	try:
+	"""try:
 		asked_age = driver.find_element_by_xpath('//*[@id="yes18"]')
 		print("asked age 18")
 		asked_age.click()
 	except:
-		pass
-
-#Bypass second wave of popups
-def menu_click():
-	count = 20
-	while count:
-		count -= 1
-		try:
-			menu_arrow = driver.find_element_by_id('account-status-button')
-		except:
-			time.sleep(.2)
-			continue
-		if menu_arrow:
-			print("menu arrow found 2")
-			break
-	if not count:
-		if EC2_MODE:
-			exit(0)
-		else:
-			time.sleep(10000)
-
-	while not menu_arrow.is_enabled():
-		print("menu arrow not enabled yet")
-		time.sleep(.3)
-	try:
-		menu_arrow.click()
-	except:
-		driver.refresh()
-		print("menu arrow click didn't work - refreshing")
-		time.sleep(5)
-		menu_arrow = driver.find_element_by_id('account-status-button')
-		menu_arrow.click()
-	time.sleep(.5)
+		pass"""
 
 #Click spin button
 def spin_button(username):
@@ -146,22 +133,17 @@ def spin_button(username):
 #Save prizes won in a log file
 def write_to_file(username):
 	#print prize won
-	if EC2_MODE:
-		f = open(PATH_TO_LOGFILE,'a')
-		print("prize file opened")
-		try:
-			prize = driver.find_element_by_xpath('//*[@id="game-details-page"]/div[4]/div/div/p')
-			print("prize found")
-			print(f"{username} {prize.text}")
-			f.write(f"{username} {prize.text} \n")
-		except:
-			print(f"{username} prize broken")
-			f.write(f"{username} prize broken\n")			
-		f.close()
-	else:
+	f = open(PATH_TO_LOGFILE,'a')
+	print("prize file opened")
+	try:
 		prize = driver.find_element_by_xpath('//*[@id="game-details-page"]/div[4]/div/div/p')
 		print("prize found")
 		print(f"{username} {prize.text}")
+		f.write(f"{username} {prize.text} \n")
+	except:
+		print(f"{username} prize broken")
+		f.write(f"{username} prize broken\n")			
+	f.close()
 
 def sign_out():
 	print("signing out")
@@ -206,7 +188,6 @@ def spin(index):
 		sign_in(usernames[index], passwords[index])
 	except:
 		driver.save_screenshot("sign_in.png")
-	refresh()
 	menu_click()
 	spin_button(usernames[index])
 	write_to_file(usernames[index])
