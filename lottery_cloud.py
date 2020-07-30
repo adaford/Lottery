@@ -10,6 +10,7 @@ import sys
 import os
 from datetime import date
 
+# no args for EC2, single index number for windows testing 
 EC2_MODE = True if len(sys.argv) == 1 else False
 PATH_TO_USERNAMES = "/home/ec2-user/lotto/lotto_accounts.txt" if EC2_MODE else "D:\Adam\Selenium\lottery\lotto_accounts.txt"
 PATH_TO_LOGFILE = f"/home/ec2-user/lotto/logs/{str(date.today())[5:]}.txt" if EC2_MODE else f"D:\Adam\Selenium\lottery\{str(date.today())[5:]}.txt"
@@ -135,25 +136,40 @@ def write_to_file(username):
 	#print prize won
 	f = open(PATH_TO_LOGFILE,'a')
 	print("prize file opened")
+	driver.save_screenshot("stuck_spot_prize_file.png")
 	try:
 		prize = driver.find_element_by_xpath('//*[@id="game-details-page"]/div[4]/div/div/p')
 		print("prize found")
 		print(f"{username} {prize.text}")
 		f.write(f"{username} {prize.text} \n")
 	except:
+		driver.save_screenshot("prize_broken.png")
 		print(f"{username} prize broken")
-		f.write(f"{username} prize broken\n")			
+		f.write(f"{username} prize broken\n")	
+		driver.save_screenshot("wtf.png")
+		exit(1)		
 	f.close()
-
+	time.sleep(1)
+ 
 def sign_out():
 	print("signing out")
 	driver.refresh()
+	check_for_survey()
 	print("refreshed")
 	time.sleep(5)
 	drop_down = driver.find_element_by_id('account-status-button')
 	print("drop_down found")
-	drop_down.click()
-	time.sleep(.3)
+	time.sleep(5)
+	count = 20
+	while count:
+		count -= 1
+		try:
+			drop_down.click()
+			break
+		except:
+			pass
+	print("drop_down clicked")
+	time.sleep(1)
 	sign_out = driver.find_element_by_xpath('//*[@id="account-dropdown"]/div[4]/div[2]/div')
 	print("sign_out found")
 	sign_out.click()
@@ -195,6 +211,7 @@ def spin(index):
 		sign_out()
 	except:
 		driver.save_screenshot("sign_out.png")
+		exit(1)
 
 		
 if __name__ == '__main__':
