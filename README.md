@@ -2,7 +2,7 @@
 
 Runs a headless chrome browser that automatically spins the daily wheel on michiganlottery.com
 
-Requires:  selenium chromedriver latest version
+Requires:  selenium chromedriver
 
 change path variables to match your accounts.txt and results.txt files
 
