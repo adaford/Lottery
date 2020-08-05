@@ -79,6 +79,7 @@ def menu_click():
 	time.sleep(3)
 	check_for_survey()
 	check_for_ads()
+	check_for_survey()
 
 	count = 20
 	menu_arrow = None
@@ -97,14 +98,18 @@ def menu_click():
 				driver.save_screenshot("menu_arrow_broken.png")
 				print("menu arrow broken - exiting")
 				if EC2_MODE:
-					exit(0)
+					exit(1)
 				else:
 					time.sleep(10000)
 
 	while not menu_arrow.is_enabled():
 		print("menu arrow not enabled yet")
 		time.sleep(.3)
-	menu_arrow.click()
+	try:
+		menu_arrow.click()
+	except:
+		driver.save_screenshot('menu_arrow_broken.png')
+
 	time.sleep(1.5)
 
 	"""try:
@@ -131,6 +136,7 @@ def spin_button(username):
 			print(f"spin click broken on {username}")
 	time.sleep(22)
 
+
 #Save prizes won in a log file
 def write_to_file(username):
 	#print prize won
@@ -151,6 +157,7 @@ def write_to_file(username):
 	f.close()
 	time.sleep(1)
  
+
 def sign_out():
 	print("signing out")
 	driver.refresh()
@@ -172,10 +179,12 @@ def sign_out():
 	time.sleep(1)
 	sign_out = driver.find_element_by_xpath('//*[@id="account-dropdown"]/div[4]/div[2]/div')
 	print("sign_out found")
+	time.sleep(2)
 	sign_out.click()
 	driver.refresh()
 	print("signed out")
 	time.sleep(5)
+
 
 #Remove accounts from usernames/passwords list that have already been spun today
 def remove_accounts():
@@ -198,20 +207,19 @@ def remove_accounts():
 			usernames.pop(0)
 			passwords.pop(0)
 
+
 #run all commands to spin wheel
 def spin(index):
 	try:
 		sign_in(usernames[index], passwords[index])
 	except:
-		driver.save_screenshot("sign_in.png")
+		check_for_survey()
+		sign_in(usernames[index], passwords[index])
+		
 	menu_click()
 	spin_button(usernames[index])
 	write_to_file(usernames[index])
-	try:
-		sign_out()
-	except:
-		driver.save_screenshot("sign_out.png")
-		exit(1)
+	sign_out()
 
 		
 if __name__ == '__main__':
