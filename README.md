@@ -7,3 +7,5 @@ Requires:  selenium chromedriver
 change path variables to match your accounts.txt and results.txt files
 
 Best if used in a daily crontab
+
+$python lottery_cloud.py <index=0>
