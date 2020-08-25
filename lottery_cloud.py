@@ -8,24 +8,36 @@ from selenium.webdriver.chrome.options import Options
 import time
 import sys 
 import os
-from datetime import date
+from datetime import datetime
+from pytz import timezone
+import psutil
+
+
+DATE = datetime.now(timezone('US/Eastern')).strftime("%m-%d")
 
 # no args for EC2, single index number for windows testing 
 EC2_MODE = True if len(sys.argv) == 1 else False
 PATH_TO_USERNAMES = "/home/ec2-user/lotto/lotto_accounts.txt" if EC2_MODE else "D:\Adam\Selenium\lottery\lotto_accounts.txt"
-PATH_TO_LOGFILE = f"/home/ec2-user/lotto/logs/{str(date.today())[5:]}.txt" if EC2_MODE else f"D:\Adam\Selenium\lottery\{str(date.today())[5:]}.txt"
+PATH_TO_LOGFILE = f"/home/ec2-user/lotto/logs/{DATE}.txt" if EC2_MODE else f"D:\Adam\Selenium\lottery\{DATE}.txt"
+
 
 chrome_options = Options()
 chrome_options.add_argument('log-level=3')
 chrome_options.add_argument("--mute-audio")
 chrome_options.add_argument('--incognito')
+chrome_options.add_argument("--disable-extensions")
 if EC2_MODE:
 	chrome_options.add_argument('headless')
 
+
 def create_driver():
 	driver = webdriver.Chrome(options=chrome_options)
-	driver.implicitly_wait(20)
+	if EC2_MODE:
+		driver.implicitly_wait(20)
+	else:
+		driver.implicitly_wait(8)
 	return driver
+
 
 def open_browser():
 	driver.set_window_size(1920,1080)
@@ -33,20 +45,17 @@ def open_browser():
 	print("loading page")
 	driver.get("https://www.michiganlottery.com")
 
+
 def sign_in(user,pw):
 	print(f"signing in {user}")
 	sign_in = driver.find_element_by_id("login_button")
 	count = 20
 	while not sign_in.is_enabled():
-		time.sleep(1)
+		print("sign in not yet enabled")
+		time.sleep(2)
 		count -= 1
 		if count==0:
-			print("saving screenshot sign_in_not_enabled")
-			driver.save_screenshot("sign_in_not_enabled.png")
-			if EC2_MODE:
-				exit(0)
-			else:
-				time.sleep(10000)
+			return False
 
 	sign_in.click()
 	email_input = driver.find_element_by_id('user')
@@ -55,14 +64,20 @@ def sign_in(user,pw):
 	pw_input.send_keys(pw)
 	driver.find_element_by_id('submit').submit()
 	print(f"signed in {user}")
+	return True
 
 def check_for_survey():
+	driver.implicitly_wait(5)
 	try:
 		survey_button = driver.find_element_by_xpath('//*[@id="acsMainInvite"]/div/a[1]')
 		survey_button.click()
 		print("survey_button clicked")
 	except:
 		print("no survey_button found")
+	if EC2_MODE:
+		driver.implicitly_wait(20)
+	else:
+		driver.implicitly_wait(8)
 
 def check_for_ads():
 	try:
@@ -73,6 +88,7 @@ def check_for_ads():
 			time.sleep(5)
 	except:
 		print("no ad found")
+
 
 #Bypass first wave of popups
 def menu_click():
@@ -98,6 +114,7 @@ def menu_click():
 				driver.save_screenshot("menu_arrow_broken.png")
 				print("menu arrow broken - exiting")
 				if EC2_MODE:
+					driver.quit()
 					exit(1)
 				else:
 					time.sleep(10000)
@@ -119,21 +136,18 @@ def menu_click():
 	except:
 		pass"""
 
+
 #Click spin button
 def spin_button(username):
 	spin_to_win = driver.find_element_by_id('daily-spin-to-win-button')
-	while not spin_to_win:
-		print("not spin_to_win")
-		time.sleep(.5)
 	spin_to_win.click()
-	time.sleep(1)
 	spin = driver.find_element_by_class_name('daily-spin-to-win-cta')
-	if spin.is_enabled():
-		try:
-			spin.click()
-			print(f"spinning for {username}")
-		except:
-			print(f"spin click broken on {username}")
+	time.sleep(1)
+	try:
+		spin.click()
+		print(f"spinning for {username}")
+	except:
+		print(f"spin click broken on {username}")
 	time.sleep(22)
 
 
@@ -142,17 +156,18 @@ def write_to_file(username):
 	#print prize won
 	f = open(PATH_TO_LOGFILE,'a')
 	print("prize file opened")
-	driver.save_screenshot("stuck_spot_prize_file.png")
 	try:
 		prize = driver.find_element_by_xpath('//*[@id="game-details-page"]/div[4]/div/div/p')
 		print("prize found")
 		print(f"{username} {prize.text}")
 		f.write(f"{username} {prize.text} \n")
 	except:
+		print(psutil.cpu_percent())
+		print(psutil.virtual_memory().percent)
 		driver.save_screenshot("prize_broken.png")
 		print(f"{username} prize broken")
 		f.write(f"{username} prize broken\n")	
-		driver.save_screenshot("wtf.png")
+		print("prize broken, exiting")
 		exit(1)		
 	f.close()
 	time.sleep(1)
@@ -161,7 +176,6 @@ def write_to_file(username):
 def sign_out():
 	print("signing out")
 	driver.refresh()
-	check_for_survey()
 	print("refreshed")
 	time.sleep(5)
 	drop_down = driver.find_element_by_id('account-status-button')
@@ -174,13 +188,18 @@ def sign_out():
 			drop_down.click()
 			break
 		except:
-			pass
+			print("drop_down.click not ready")
+			time.sleep(1)
 	print("drop_down clicked")
 	time.sleep(1)
 	sign_out = driver.find_element_by_xpath('//*[@id="account-dropdown"]/div[4]/div[2]/div')
 	print("sign_out found")
 	time.sleep(2)
-	sign_out.click()
+	try:
+		sign_out.click()
+	except:
+		time.sleep(10)
+		sign_out.click()
 	driver.refresh()
 	print("signed out")
 	time.sleep(5)
@@ -200,22 +219,37 @@ def remove_accounts():
 					usernames.pop(user_index)
 					passwords.pop(user_index)
 		except:
-			print("remove_accounts passed")
-			pass
+			print("No accounts to remove")
+
 	else:
 		for i in range(int(sys.argv[1])-1):
 			usernames.pop(0)
 			passwords.pop(0)
 
+		if len(usernames) == 0:
+			print("all accounts already spun")
+			driver.quit()
+			exit(0)
+
 
 #run all commands to spin wheel
 def spin(index):
-	try:
-		sign_in(usernames[index], passwords[index])
-	except:
-		check_for_survey()
-		sign_in(usernames[index], passwords[index])
-		
+	count = 10
+	while count:
+		logged_in = sign_in(usernames[index], passwords[index])
+		if logged_in:
+			break
+		else:
+			print(f"login attempt #{11-count} failed")
+			driver.quit()
+			driver = create_driver()
+			open_browser()
+			count -= 1
+	if count == 0:
+		print("cannot log in, exiting")
+		driver.quit()
+		exit(1)
+
 	menu_click()
 	spin_button(usernames[index])
 	write_to_file(usernames[index])
