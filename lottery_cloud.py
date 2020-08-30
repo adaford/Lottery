@@ -14,6 +14,7 @@ import psutil
 
 
 DATE = datetime.now(timezone('US/Eastern')).strftime("%m-%d")
+print(f"\n\nStarting Script at: {datetime.now(timezone('US/Eastern')).strftime('%m/%d %H:%M')}")
 
 # no args for EC2, single index number for windows testing 
 EC2_MODE = True if len(sys.argv) == 1 else False
@@ -207,6 +208,7 @@ def sign_out():
 
 #Remove accounts from usernames/passwords list that have already been spun today
 def remove_accounts():
+	ret = False
 	if EC2_MODE:
 		try:
 			with open(PATH_TO_LOGFILE) as f:
@@ -218,6 +220,10 @@ def remove_accounts():
 					user_index = usernames.index(email_address)
 					usernames.pop(user_index)
 					passwords.pop(user_index)
+
+			if len(usernames) == 0:
+				print("all accounts already spun")
+				ret = True
 		except:
 			print("No accounts to remove")
 
@@ -225,30 +231,16 @@ def remove_accounts():
 		for i in range(int(sys.argv[1])-1):
 			usernames.pop(0)
 			passwords.pop(0)
-
-		if len(usernames) == 0:
-			print("all accounts already spun")
-			driver.quit()
-			exit(0)
-
+	return ret
+		
 
 #run all commands to spin wheel
 def spin(index):
-	count = 10
-	while count:
-		logged_in = sign_in(usernames[index], passwords[index])
-		if logged_in:
-			break
-		else:
-			print(f"login attempt #{11-count} failed")
-			driver.quit()
-			driver = create_driver()
-			open_browser()
-			count -= 1
-	if count == 0:
-		print("cannot log in, exiting")
+	logged_in = sign_in(usernames[index], passwords[index])
+	if not logged_in:
+		print("can't log in, exiting")
 		driver.quit()
-		exit(1)
+		exit(0)
 
 	menu_click()
 	spin_button(usernames[index])
@@ -268,11 +260,14 @@ if __name__ == '__main__':
 		a = accounts_passwords[i].split()
 		usernames.append(a[0])
 		passwords.append(a[1])
-	remove_accounts()
-
+	exit_now = remove_accounts()
+	if exit_now:
+		print("Script reached end \n")
+		exit(0)
 	#run driver
 	driver = create_driver()
 	open_browser()
 	for index in range(len(usernames)):
 		spin(index)
 	driver.quit()
+	print("Script reached end \n")
