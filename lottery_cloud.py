@@ -11,6 +11,7 @@ import os
 from datetime import datetime
 from pytz import timezone
 import psutil
+import json
 
 
 DATE = datetime.now(timezone('US/Eastern')).strftime("%m-%d")
@@ -20,7 +21,7 @@ print(f"\n\nStarting Script at: {datetime.now(timezone('US/Eastern')).strftime('
 EC2_MODE = True if len(sys.argv) == 1 else False
 PATH_TO_USERNAMES = "/home/ec2-user/lotto/lotto_accounts.txt" if EC2_MODE else "D:\Adam\Selenium\lottery\lotto_accounts.txt"
 PATH_TO_LOGFILE = f"/home/ec2-user/lotto/logs/{DATE}.txt" if EC2_MODE else f"D:\Adam\Selenium\lottery\{DATE}.txt"
-
+PATH_TO_BALANCES = "/home/ec2-user/lotto/balances.json" if EC2_MODE else "D:\Adam\Selenium\lottery\Balances.json"
 
 chrome_options = Options()
 chrome_options.add_argument('log-level=3')
@@ -173,8 +174,22 @@ def write_to_file(username):
 	f.close()
 	time.sleep(1)
  
+def update_balance(index):
+	balance = driver.find_element_by_xpath('//*[@id="player-balance"]').text
+	data = None
+	print("balance found")
 
-def sign_out():
+	with open(PATH_TO_BALANCES, "r") as jsonFile:
+		data = json.load(jsonFile)
+		data[usernames[index]] = balance
+
+	with open(PATH_TO_BALANCES, "w") as jsonFile:
+		json.dump(data, jsonFile, indent=2) 
+
+	print("balance updated")
+
+
+def sign_out(index):
 	print("signing out")
 	driver.refresh()
 	print("refreshed")
@@ -191,8 +206,15 @@ def sign_out():
 		except:
 			print("drop_down.click not ready")
 			time.sleep(1)
+		if count==0:
+			print("broken drop_down menu on sign_out, exiting")
+			driver.quit()
+			exit(1)
 	print("drop_down clicked")
 	time.sleep(1)
+
+	update_balance(index)
+
 	sign_out = driver.find_element_by_xpath('//*[@id="account-dropdown"]/div[4]/div[2]/div')
 	print("sign_out found")
 	time.sleep(2)
@@ -232,7 +254,7 @@ def remove_accounts():
 			usernames.pop(0)
 			passwords.pop(0)
 	return ret
-		
+
 
 #run all commands to spin wheel
 def spin(index):
@@ -245,7 +267,7 @@ def spin(index):
 	menu_click()
 	spin_button(usernames[index])
 	write_to_file(usernames[index])
-	sign_out()
+	sign_out(index)
 
 		
 if __name__ == '__main__':
@@ -264,6 +286,7 @@ if __name__ == '__main__':
 	if exit_now:
 		print("Script reached end \n")
 		exit(0)
+
 	#run driver
 	driver = create_driver()
 	open_browser()
