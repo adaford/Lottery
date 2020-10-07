@@ -12,6 +12,7 @@ from datetime import datetime
 from pytz import timezone
 import psutil
 import json
+import SMS
 
 
 DATE = datetime.now(timezone('US/Eastern')).strftime("%m-%d")
@@ -68,6 +69,7 @@ def sign_in(user,pw):
 	print(f"signed in {user}")
 	return True
 
+
 def check_for_survey():
 	driver.implicitly_wait(5)
 	try:
@@ -80,6 +82,7 @@ def check_for_survey():
 		driver.implicitly_wait(20)
 	else:
 		driver.implicitly_wait(8)
+
 
 def check_for_ads():
 	try:
@@ -174,6 +177,7 @@ def write_to_file(username):
 	f.close()
 	time.sleep(1)
  
+ 
 def update_balance(index):
 	balance = driver.find_element_by_xpath('//*[@id="player-balance"]').text
 	data = None
@@ -208,6 +212,7 @@ def sign_out(index):
 			time.sleep(1)
 		if count==0:
 			print("broken drop_down menu on sign_out, exiting")
+			driver.save_screenshot("sign_out_broken.png")
 			driver.quit()
 			exit(1)
 	print("drop_down clicked")
@@ -275,16 +280,15 @@ if __name__ == '__main__':
 	passwords = []
 
 	#populate usernames and passwords
-	f = open(PATH_TO_USERNAMES,"r")
-	accounts_passwords = f.readlines()
-	f.close()
+	with open(PATH_TO_USERNAMES,"r") as f:
+		accounts_passwords = f.readlines()
 	for i in range(len(accounts_passwords)):
 		a = accounts_passwords[i].split()
 		usernames.append(a[0])
 		passwords.append(a[1])
 	exit_now = remove_accounts()
 	if exit_now:
-		print("Script reached end \n")
+		print("Script finished earlier today \n")
 		exit(0)
 
 	#run driver
@@ -293,4 +297,20 @@ if __name__ == '__main__':
 	for index in range(len(usernames)):
 		spin(index)
 	driver.quit()
+
+	#text results to phone or email
+	print("sending text message")
+	with open(PATH_TO_BALANCES, "r") as jsonFile:
+		balances = json.load(jsonFile)
+
+	with open(PATH_TO_LOGFILE) as f:
+		print("opened logfile")
+		all_prizes = f.readlines()
+		message = ""
+		for prize in all_prizes:
+			prize_array = prize.split(" ")
+			prize_array.insert(1,balances[prize_array[0]])
+			message += (" ").join(prize_array) + '\n'
+		SMS.send(message)
+
 	print("Script reached end \n")
